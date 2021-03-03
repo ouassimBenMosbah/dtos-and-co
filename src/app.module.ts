@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { Sequelize } from 'sequelize-typescript';
 import { AppController } from './app.controller';
 import { Pokemon } from './models/pokemon.model';
+import { TransactionInterceptor } from './transaction.interceptor';
 
 @Module({
   controllers: [AppController],
@@ -19,6 +21,10 @@ import { Pokemon } from './models/pokemon.model';
       retryDelay: 5000,
       logging: false,
     }),
+  ],
+  providers: [
+    TransactionInterceptor,
+    { provide: 'SEQUELIZE', useExisting: Sequelize },
   ],
 })
 export class AppModule {}

@@ -1,8 +1,19 @@
-import { Controller, Get, ParseBoolPipe, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  ParseBoolPipe,
+  Post,
+  Query,
+  UseInterceptors,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { Transaction } from 'sequelize';
 import { WhereOptions } from 'sequelize/types';
-import { GetPokemonsDTO } from './DTOs/pokemons.dto';
+import { GetPokemonsDTO, GetPokemonsDTO2 } from './DTOs/pokemons.dto';
 import { Pokemon } from './models/pokemon.model';
+import { TransactionParam } from './transaction-param.decorator';
+import { TransactionInterceptor } from './transaction.interceptor';
 
 @Controller()
 export class AppController {
@@ -43,7 +54,7 @@ export class AppController {
   async level4(@Query() query: GetPokemonsDTO): Promise<Pokemon[]> {
     console.log(query);
     return this.pokemonModel.findAll({
-      where: query,
+      where: new GetPokemonsDTO2(query),
     });
   }
 
@@ -56,11 +67,15 @@ export class AppController {
   }
 
   @Get('level4-3')
-  async level4_3(@Query() query: GetPokemonsDTO): Promise<Pokemon[]> {
+  async level4_3(
+    @TransactionParam() transaction: Transaction,
+    @Query() query: GetPokemonsDTO,
+  ): Promise<Pokemon[]> {
     console.log(query);
     // const { populate, ...where } = query as any;
     return this.pokemonModel.findAll({
       where: { ...query },
+      transaction,
     });
   }
 
@@ -70,5 +85,29 @@ export class AppController {
     return this.pokemonModel.findAll({
       where: { ...query },
     });
+  }
+
+  @UseInterceptors(TransactionInterceptor)
+  @Post('transactions')
+  async transactions(
+    @Body() query: GetPokemonsDTO,
+    @TransactionParam() transaction: Transaction,
+  ): Promise<[number, Pokemon[]]> {
+    const { pokemonId, ...attributeToUpdate } = query;
+    await this.pokemonModel.update(
+      { ...attributeToUpdate },
+      {
+        where: { pokemonId: pokemonId },
+        transaction,
+      },
+    );
+
+    return this.pokemonModel.update(
+      { ...attributeToUpdate },
+      {
+        where: { pokemonId: undefined },
+        transaction,
+      },
+    );
   }
 }
